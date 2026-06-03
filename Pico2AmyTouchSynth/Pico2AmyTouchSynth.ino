@@ -40,7 +40,6 @@
 #include "effects.h"
 #include "patches_table.h"
 
-
 #include <Wire.h>
 #include <Adafruit_GFX.h>
 #include <Adafruit_SSD1306.h>
@@ -96,12 +95,14 @@ int  lastRightKnob   = -1;
 
 // ── Effect levels ─────────────────────────────────────────────────────────────
 float chorusLevel = FX_CHORUS_DEFAULT_LEVEL;
+float echoLevel = FX_ECHO_DEFAULT_LEVEL;
 float reverbLevel = FX_REVERB_DEFAULT_LEVEL;
 
 static bool padActive[16] = { false };
 
 bool displayNeedsUpdate = false;
 bool debug = true;
+int transpose = 12;
 
 // ── Setup ─────────────────────────────────────────────────────────────────────
 void setup() {
@@ -126,11 +127,9 @@ void setup() {
 }
 
 // ── Loop ──────────────────────────────────────────────────────────────────────
-void loop() {
+void loop() {  
     updateTouchInputs();
     updateButtonKnobs();
-
-    if (displayNeedsUpdate && !patchSelectMode) updateDisplay();
-
+    if (displayNeedsUpdate && !patchSelectMode) updateDisplay(); 
     amy_update();
 }

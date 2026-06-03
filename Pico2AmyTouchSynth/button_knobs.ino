@@ -97,8 +97,8 @@ void updateButtonKnobs() {
     if (patchSelectMode) {
         // ── Patch-select mode: knobs choose bank and slot ─────────────────────
 
-        int bank = map(smoothedLeft, 0, ADC_MAX, 0, NUM_BANKS - 1);
-        bank     = constrain(bank, 0, NUM_BANKS - 1);
+        int bank = map(smoothedLeft, 0, ADC_MAX, 0, NUM_BANKS);
+        bank     = constrain(bank, 0, NUM_BANKS);
 
         if (bank != lastLeftKnob) {
             lastLeftKnob = bank;
@@ -111,7 +111,7 @@ void updateButtonKnobs() {
 
         int totalSlots = bankPatchCount(currentBank);
         int slot = (totalSlots > 1)
-                     ? map(smoothedRight, 0, ADC_MAX, 0, totalSlots - 1)
+                     ? map(smoothedRight, 0, ADC_MAX, 0, totalSlots)
                      : 0;
         slot = constrain(slot, 0, totalSlots - 1);
 
@@ -130,7 +130,9 @@ void updateButtonKnobs() {
 
         if (fabsf(newChorus - chorusLevel) >= FX_LEVEL_CHANGE_THRESHOLD) {
             chorusLevel = newChorus;
+            Serial.println(chorusLevel);
             amy_set_chorus_level(chorusLevel);
+            amy_set_echo_level(chorusLevel);
             displayNeedsUpdate = true;
         }
 

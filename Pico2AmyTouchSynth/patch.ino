@@ -4,8 +4,6 @@
 // Silence all active voices, then configure all 16 voices with the new patch.
 void loadPatch(int patchIdx) {
     uint16_t patchNum = PATCHES[patchIdx].number;
-    config_reverb(0.5f, 0.85f, 0.5f, 3000.0f);
-    config_chorus(0.75f, 320, 0.5f, 0.5f);
 
     // Silence all active voices first
     for (int v = 0; v < 16; v++) {

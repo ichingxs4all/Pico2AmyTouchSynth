@@ -2,6 +2,7 @@
 
 void setupAMY() {
     amy_config_t amy_config = amy_default_config();
+    
     amy_config.features.startup_bleep  = 1;
     amy_config.features.default_synths = 1;
 
@@ -20,6 +21,11 @@ void setupAMY() {
     amy_start(amy_config);
 
     if (debug) Serial.println("AMY started");
+
+    config_chorus(0.75f, 320, 0.5f, 0.5f);
+    config_echo(0.5f, 150.0f, 160.0f, 0.5f, 0.0f);
+    config_reverb(0.5f, 0.85f, 0.5f, 3000.0f);
+    config_stereo_reverb(0.85f, 0.5f, 3000.0f);
 
     // Load default patch (bank 0, slot 0)
     loadPatch(currentPatchIndex);
