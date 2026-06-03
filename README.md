@@ -3,16 +3,17 @@ Pico 2 Amy synth engine based touch synthesizer
 
 Hardware used is a PCB desinged by TodBot ; the Pico Test Synth https://github.com/todbot/pico_test_synth
 
-Make shure when usign this board to set the solderpad jumpers right on the bottom. 
+Make sure when usign this board to set the solderpad jumpers right on the bottom. 
 JP1 = closed and JP2 = open
 
  * Pico 2 Amy Touch Synth
  *
  * AMY-powered polyphonic synthesizer for pico_test_synth2 (Pico 2 / RP2350).
  *
- * Hardware (from README):
+ *   Hardware pins used
+ *
  *   GP28  - middle button (hold to enter patch-select mode)
- *   GP27  - right knob   (ADC)
+ *   GP27  - right knob   (ADC) (not used right now)
  *   GP26  - left knob    (ADC) <-- used for patch selection
  *   GP22  - I2S DATA
  *   GP21  - I2S LRC  (must be BCLK + 1)
