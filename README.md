@@ -36,3 +36,7 @@ JP1 = closed and JP2 = open
  *
  * Board: "Raspberry Pi Pico 2" (Tools > Board > Raspberry Pi RP2350 Boards)
  *
+ <img width="2048" height="946" alt="Pico2AmyTouchSynth-Top" src="https://github.com/user-attachments/assets/b1e4bf8f-44b0-4547-9cfb-da0b0652bc54" />
+<img width="2048" height="946" alt="Pico2AmyTouchSynth-Bottom" src="https://github.com/user-attachments/assets/0eca2823-ab09-4c60-805b-19dfe495f7d4" />
+<img width="2048" height="946" alt="Pico2AmyTouchSynth-Bottom-detail" src="https://github.com/user-attachments/assets/1569fc3c-6bba-4e4d-97b3-35862d26e4cb" />
+
