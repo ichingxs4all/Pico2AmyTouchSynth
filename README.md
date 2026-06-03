@@ -1,7 +1,7 @@
 # Pico2AmyTouchSynth
 Pico 2(W) Amy synth engine based touch synthesizer
 
-Hardware used is a PCB desinged by TodBot ; the Pico Test Synth https://github.com/todbot/pico_test_synth
+Hardware used is a PCB designed by TodBot ; the Pico Test Synth https://github.com/todbot/pico_test_synth
 
 IMPORTANT !!
 
