@@ -20,7 +20,7 @@
  *
  * Knob behaviour:
  *   Button NOT held  →  left knob = chorus level,  right knob = reverb level
- *   Button HELD      →  left knob = bank (1–16),   right knob = slot in bank
+ *   Button HELD      →  left knob = bank (1–16),   right knob = slot in bank (1-17) , OCT +1 = PAD 15 , OCT -1 = PAD 14
  *   Release button   →  load chosen patch
  *
  * NOTE: All .ino files in this folder are merged automatically by the Arduino
@@ -31,7 +31,11 @@
  *   – TouchyTouch           (todbot/TouchyTouch v1.2.1+)
  *   – Adafruit SSD1306      (128×64 OLED over I2C)
  *   – Adafruit GFX Library
+ *   – Adafruit TinyUSB Library  (USB MIDI class-compliant device)
  *   – arduino-pico board package (earlephilhower)
+ *
+ * USB MIDI setup:
+ *   Tools › USB Stack → "Adafruit TinyUSB"   ← required!
  *
  * Board: "Raspberry Pi Pico 2"  (Tools › Board › Raspberry Pi RP2350 Boards)
  */
@@ -45,6 +49,10 @@
 #include <Adafruit_GFX.h>
 #include <Adafruit_SSD1306.h>
 #include <TouchyTouch.h>
+#include <Adafruit_TinyUSB.h>
+
+// USB MIDI interface – declared here so all .ino files can see it
+Adafruit_USBD_MIDI usbMidi;
 
 // ── Pin definitions ───────────────────────────────────────────────────────────
 #define PIN_BTN        28   // button – active LOW (internal pull-up)
@@ -87,8 +95,9 @@ int  currentBank       = 0;   // 0-based bank index
 int  currentSlot       = 0;   // 0-based slot within the bank
 int  currentPatchIndex = 0;   // global PATCHES[] index
 
-bool patchSelectMode = false;
-bool lastBtnState    = HIGH;  // seeded from real pin in setupButtonKnobs()
+bool patchSelectMode  = false;
+bool patchKnobMoved   = false;  // true only if a knob moved during the current hold
+bool lastBtnState     = HIGH;   // seeded from real pin in setupButtonKnobs()
 
 // ── Menu state ────────────────────────────────────────────────────────────────
 bool menuMode    = false;
@@ -109,6 +118,7 @@ static bool padActive[16] = { false };
 bool displayNeedsUpdate = false;
 bool debug = true;
 int transpose = 12;
+int octave    = 0;   // semitone offset = octave * 12; range -4 to +4
 
 // ── Setup ─────────────────────────────────────────────────────────────────────
 void setup() {
@@ -126,6 +136,7 @@ void setup() {
     setupTouch();
     setupButtonKnobs();   // also seeds chorusLevel / reverbLevel from knob pos
     setupDisplay();
+    setupMidi();
     setupAMY();
 
     delay(500);
@@ -134,8 +145,10 @@ void setup() {
 
 // ── Loop ──────────────────────────────────────────────────────────────────────
 void loop() {
+    updateMidiIn();    // poll USB + UART MIDI input
     updateTouchInputs();
     updateButtonKnobs();
     if (displayNeedsUpdate && (!patchSelectMode || menuMode)) updateDisplay();
+    usbMidi.flush();   // push any buffered USB MIDI packets to the host
     amy_update();
 }

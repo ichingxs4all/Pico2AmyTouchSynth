@@ -109,12 +109,14 @@ void updateButtonKnobs() {
             uint32_t held = now - btnPressTime;
 
             if (patchSelectMode && !menuMode) {
-                // Long-press release → load chosen patch
-                patchSelectMode   = false;
-                currentPatchIndex = bankSlotToIndex(currentBank, currentSlot);
-                loadPatch(currentPatchIndex);
-                displayNeedsUpdate = true;
-                updateDisplay();
+                patchSelectMode = false;
+                if (patchKnobMoved) {
+                    // Knob was turned during hold → load the chosen patch
+                    currentPatchIndex = bankSlotToIndex(currentBank, currentSlot);
+                    loadPatch(currentPatchIndex);
+                    displayNeedsUpdate = true;
+                    updateDisplay();
+                }
 
             } else if (held < (uint32_t)BTN_CLICK_MAX_MS) {
                 // Quick click – open double-click window
@@ -139,9 +141,10 @@ void updateButtonKnobs() {
     // ── Hold threshold → enter patch-select (play mode only) ─────────────────
     if (btnHeld && !menuMode && !patchSelectMode) {
         if ((now - btnPressTime) >= (uint32_t)BTN_HOLD_MS) {
-            patchSelectMode = true;
-            lastLeftKnob    = -1;
-            lastRightKnob   = -1;
+            patchSelectMode  = true;
+            patchKnobMoved   = false;
+            lastLeftKnob     = -1;
+            lastRightKnob    = -1;
             displayNeedsUpdate = true;
         }
     }
@@ -163,6 +166,7 @@ void updateButtonKnobs() {
         int bank = map(smoothedLeft, 0, ADC_MAX, 0, NUM_BANKS);
         bank = constrain(bank, 0, NUM_BANKS - 1);
         if (bank != lastLeftKnob) {
+            patchKnobMoved = true;
             lastLeftKnob = bank;
             currentBank  = bank;
             int slots = bankPatchCount(currentBank);
@@ -175,6 +179,7 @@ void updateButtonKnobs() {
         int slot = (totalSlots > 1) ? map(smoothedRight, 0, ADC_MAX, 0, totalSlots) : 0;
         slot = constrain(slot, 0, totalSlots - 1);
         if (slot != lastRightKnob) {
+            patchKnobMoved = true;
             lastRightKnob = slot;
             currentSlot   = slot;
             displayNeedsUpdate = true;

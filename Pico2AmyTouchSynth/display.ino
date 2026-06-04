@@ -143,10 +143,19 @@ void updateDisplay() {
         drawLabelledBar("REV", 64, 47, 44, reverbLevel);
     }
 
-    // ── Row 56: patch number (both modes) ────────────────────────────────────
+    // ── Row 56: patch number (left) and octave indicator (right) ────────────
     display.setCursor(0, 56);
     display.print("PATCH # ");
     display.print(patchNum);
+
+    // Octave indicator right-aligned: "OCT: 0" / "OCT:+2" / "OCT:-1"
+    char octBuf[8];
+    if (octave == 0)     snprintf(octBuf, sizeof(octBuf), "OCT: 0");
+    else if (octave > 0) snprintf(octBuf, sizeof(octBuf), "OCT:+%d", octave);
+    else                 snprintf(octBuf, sizeof(octBuf), "OCT:%d",  octave);
+    int octW = strlen(octBuf) * 6;
+    display.setCursor(OLED_WIDTH - octW, 56);
+    display.print(octBuf);
 
     display.display();
     displayNeedsUpdate = false;
