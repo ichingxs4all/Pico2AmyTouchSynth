@@ -153,9 +153,19 @@ void setup() {
 }
 
 // ── Loop ──────────────────────────────────────────────────────────────────────
-void loop() {  
+// Display rate-limit: the SSD1306 I2C transfer blocks for ~23–92 ms depending
+// on bus speed. Calling it every loop iteration while a knob is moving starves
+// amy_update() and causes audible glitches. Cap refreshes at 20 fps (50 ms).
+static uint32_t lastDisplayMs = 0;
+
+void loop() {
     updateTouchInputs();
     updateButtonKnobs();
-    if (displayNeedsUpdate && (!patchSelectMode || menuMode)) updateDisplay();
+    uint32_t now = millis();
+    if (displayNeedsUpdate && (!patchSelectMode || menuMode) &&
+        (now - lastDisplayMs >= 50)) {
+        lastDisplayMs = now;
+        updateDisplay();
+    }
     amy_update();
 }
