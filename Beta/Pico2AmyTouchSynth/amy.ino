@@ -18,14 +18,15 @@ void setupAMY() {
     amy_config.midi_out  = PIN_MIDI_TX;   // GP16
     amy_config.midi_in   = PIN_MIDI_RX;   // GP17
 
+    //config_chorus(0.75f, 320, 0.5f, 0.5f);
+    //config_echo(0.5f, 150.0f, 160.0f, 0.5f, 0.0f);
+    //config_reverb(0.5f, 0.85f, 0.5f, 3000.0f);
+    //config_stereo_reverb(0.85f, 0.5f, 3000.0f);
+
     amy_start(amy_config);
 
     if (debug) Serial.println("AMY started");
 
-    config_chorus(0.75f, 320, 0.5f, 0.5f);
-    config_echo(0.5f, 150.0f, 160.0f, 0.5f, 0.0f);
-    config_reverb(0.5f, 0.85f, 0.5f, 3000.0f);
-    config_stereo_reverb(0.85f, 0.5f, 3000.0f);
 
     // Load default patch (bank 0, slot 0)
     loadPatch(currentPatchIndex);

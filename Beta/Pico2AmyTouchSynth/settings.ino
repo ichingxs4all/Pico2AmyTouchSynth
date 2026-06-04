@@ -9,7 +9,7 @@
 
 #include <EEPROM.h>
 
-#define SETTINGS_MAGIC  0xA8D2F301u
+#define SETTINGS_MAGIC  0xA8D2F302u
 #define EEPROM_SIZE     64
 
 struct Settings {

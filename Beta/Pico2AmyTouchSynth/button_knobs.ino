@@ -69,14 +69,27 @@ void setupButtonKnobs() {
 
 // ── Apply one knob's assigned function ───────────────────────────────────────
 static void applyKnob(int assign, int smoothedADC, float &knobValue,
-                      int16_t &lastPB, uint8_t &lastCC, bool isLeft) {
+                      int16_t &lastPB, uint8_t &lastCC) {
     switch (assign) {
         case KNOB_PITCHBEND: {
             int pb = map(smoothedADC, 0, ADC_MAX, -8192, 8191);
             if (abs(pb - (int)lastPB) > 64) {
                 lastPB = (int16_t)pb;
                 knobValue = (float)(pb + 8192) / 16383.0f;
+                // Send to hardware MIDI out
                 midiPitchBend(0, pb);
+                // Apply directly to every active AMY voice so internal notes
+                // are bent too (MIDI TX is not looped back into AMY's RX).
+                // AMY normalises pitch bend as pb / (6 * 8192) semitones.
+                float amyPb = (float)pb / (6.0f * 8192.0f);
+                for (int v = 0; v < 16; v++) {
+                    if (padActive[v]) {
+                        amy_event ae = amy_default_event();
+                        ae.voices[0] = v;
+                        ae.pitch_bend = amyPb;
+                        amy_add_event(&ae);
+                    }
+                }
                 displayNeedsUpdate = true;
             }
             break;
@@ -97,7 +110,8 @@ static void applyKnob(int assign, int smoothedADC, float &knobValue,
                 chorusLevel = v;
                 knobValue   = v;
                 amy_set_chorus_level(v);
-                amy_set_echo_level(v);
+                uint8_t ccv = (uint8_t)(v * 127.0f);
+                if (ccv != lastCC) { lastCC = ccv; midiCC(0, 93, ccv); }
                 displayNeedsUpdate = true;
             }
             break;
@@ -108,6 +122,8 @@ static void applyKnob(int assign, int smoothedADC, float &knobValue,
                 echoLevel = v;
                 knobValue = v;
                 amy_set_echo_level(v);
+                uint8_t ccv = (uint8_t)(v * 127.0f);
+                if (ccv != lastCC) { lastCC = ccv; midiCC(0, 95, ccv); }
                 displayNeedsUpdate = true;
             }
             break;
@@ -118,6 +134,8 @@ static void applyKnob(int assign, int smoothedADC, float &knobValue,
                 reverbLevel = v;
                 knobValue   = v;
                 amy_set_reverb_level(v);
+                uint8_t ccv = (uint8_t)(v * 127.0f);
+                if (ccv != lastCC) { lastCC = ccv; midiCC(0, 91, ccv); }
                 displayNeedsUpdate = true;
             }
             break;
@@ -201,7 +219,6 @@ void updateButtonKnobs() {
             int slots = bankPatchCount(currentBank);
             if (currentSlot >= slots) currentSlot = slots - 1;
             displayNeedsUpdate = true;
-            updateDisplay();
         }
         int totalSlots = bankPatchCount(currentBank);
         int slot = (totalSlots > 1) ? map(smoothedRight, 0, ADC_MAX, 0, totalSlots) : 0;
@@ -210,12 +227,11 @@ void updateButtonKnobs() {
             lastRightKnob = slot;
             currentSlot   = slot;
             displayNeedsUpdate = true;
-            updateDisplay();
         }
 
     } else {
         // Play mode: route each knob through its assigned function
-        applyKnob((int)leftKnobAssign,  smoothedLeft,  leftKnobValue,  lastPitchBendL, lastCCL, true);
-        applyKnob((int)rightKnobAssign, smoothedRight, rightKnobValue, lastPitchBendR, lastCCR, false);
+        applyKnob((int)leftKnobAssign,  smoothedLeft,  leftKnobValue,  lastPitchBendL, lastCCL);
+        applyKnob((int)rightKnobAssign, smoothedRight, rightKnobValue, lastPitchBendR, lastCCR);
     }
 }
