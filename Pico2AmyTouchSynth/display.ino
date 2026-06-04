@@ -101,6 +101,7 @@ void setupDisplay() {
 
 // ── updateDisplay ─────────────────────────────────────────────────────────────
 void updateDisplay() {
+    if (menuMode) { drawMenuDisplay(); return; }
     display.clearDisplay();
     display.setTextSize(1);
     display.setTextColor(SSD1306_WHITE);

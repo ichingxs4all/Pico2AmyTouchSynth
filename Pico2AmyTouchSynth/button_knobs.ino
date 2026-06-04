@@ -1,33 +1,44 @@
 // button_knobs.ino
 //
-// Knob behaviour depends on whether the button is held:
+// Button modes (priority order):
 //
-//   Button NOT held  (play mode)
-//     Left  knob → chorus level  (0.0 – 1.0)
-//     Right knob → reverb level  (0.0 – 1.0)
+//   Menu mode  (enter / exit with double-click)
+//     Left  knob  – scroll menu items
+//     Right knob  – change editing item's value (relative delta)
+//     Single click – toggle edit on current item
+//     Double-click – exit menu
 //
-//   Button HELD  (patch-select mode)
-//     Left  knob → bank  (1 – NUM_BANKS)
-//     Right knob → slot  within the selected bank
-//     Release button → load chosen patch
+//   Patch-select mode  (entered by holding ≥ BTN_HOLD_MS)
+//     Left  knob  – bank
+//     Right knob  – slot within bank
+//     Release     – load chosen patch
 //
-// Knob smoothing – Exponential Moving Average (EMA)
-// ──────────────────────────────────────────────────
-// Raw 12-bit ADC samples jitter ±10–30 LSB at a fixed pot position.
-// EMA low-pass filters the stream:
+//   Play mode  (default)
+//     Left  knob  – chorus level
+//     Right knob  – reverb level
+//     Double-click – enter menu
 //
-//   smoothed = smoothed × (1 − α) + raw × α       α = 3/20 = 0.15
+// Button click / double-click / hold detection
+// ─────────────────────────────────────────────
+// Click     : press+release in < BTN_CLICK_MAX_MS
+// Double-click: second press starts within BTN_DBLCLICK_MS of the first release
+// Hold      : button held ≥ BTN_HOLD_MS without releasing
 //
-// The accumulator is kept as fixed-point (×ADC_SCALE) to avoid float
-// arithmetic on every loop tick.
+// BTN_HOLD_MS > BTN_CLICK_MAX_MS so a hold never mis-fires as a click.
+// BTN_DBLCLICK_MS > BTN_CLICK_MAX_MS so the double-click window is long
+// enough to land a second press even after a slow first release.
 //
-// No dead-band is applied to mapped output values.  A dead-band of N
-// skips every N-th position; EMA alone is sufficient to suppress jitter.
+// btnDoubleClickConsumed suppresses the release of the second click so it
+// doesn't accidentally trigger a single-click action.
 
-#define ADC_MAX            4095   // 12-bit full-scale
-#define ADC_SCALE            16   // fixed-point multiplier for EMA accumulator
-#define KNOB_EMA_ALPHA_NUM    3   // α = 3/20 = 0.15
+#define ADC_MAX            4095
+#define ADC_SCALE            16
+#define KNOB_EMA_ALPHA_NUM    3
 #define KNOB_EMA_ALPHA_DEN   20
+
+#define BTN_CLICK_MAX_MS   300   // release before this → click
+#define BTN_HOLD_MS        500   // still held after this → patch-select
+#define BTN_DBLCLICK_MS    400   // second press within this of first release → double-click
 
 // ── EMA state ─────────────────────────────────────────────────────────────────
 static int32_t emaLeft  = 0;
@@ -37,24 +48,26 @@ static inline int32_t emaStep(int32_t acc, int raw) {
     return acc * (KNOB_EMA_ALPHA_DEN - KNOB_EMA_ALPHA_NUM) / KNOB_EMA_ALPHA_DEN
          + (int32_t)raw * ADC_SCALE * KNOB_EMA_ALPHA_NUM / KNOB_EMA_ALPHA_DEN;
 }
-
 static inline int emaValue(int32_t acc) { return (int)(acc / ADC_SCALE); }
+
+// ── Button timing state ───────────────────────────────────────────────────────
+static uint32_t btnPressTime           = 0;
+static uint32_t btnFirstReleaseTime    = 0;
+static bool     btnWaitingDbl          = false;
+static bool     btnDoubleClickConsumed = false;
 
 // ── Setup ─────────────────────────────────────────────────────────────────────
 void setupButtonKnobs() {
-    analogReadResolution(12);       // RP2350 native 12-bit ADC (0–4095)
+    analogReadResolution(12);
     pinMode(PIN_BTN, INPUT_PULLUP);
 
-    // Seed EMA from real pin values so it starts settled
     int rawL = analogRead(PIN_KNOB_LEFT);
     int rawR = analogRead(PIN_KNOB_RIGHT);
     emaLeft  = (int32_t)rawL * ADC_SCALE;
     emaRight = (int32_t)rawR * ADC_SCALE;
 
-    // Seed button state so no spurious release fires at boot
     lastBtnState = digitalRead(PIN_BTN);
 
-    // Apply initial effect levels from boot knob positions
     float initChorus = (float)rawL / ADC_MAX;
     float initReverb = (float)rawR / ADC_MAX;
     amy_set_chorus_level(initChorus);
@@ -65,41 +78,90 @@ void setupButtonKnobs() {
 
 // ── Main update ───────────────────────────────────────────────────────────────
 void updateButtonKnobs() {
-    // ── Button ────────────────────────────────────────────────────────────────
-    bool btnState    = digitalRead(PIN_BTN);
-    bool btnPressed  = (btnState == LOW);
-    bool btnReleased = (lastBtnState == LOW && btnState == HIGH);
+    uint32_t now         = millis();
+    bool     btnState    = digitalRead(PIN_BTN);
+    bool     fallingEdge = (lastBtnState == HIGH && btnState == LOW);
+    bool     risingEdge  = (lastBtnState == LOW  && btnState == HIGH);
+    bool     btnHeld     = (btnState == LOW);
 
-    if (btnPressed && !patchSelectMode) {
-        patchSelectMode = true;
-        lastLeftKnob    = -1;   // force first-read evaluation
-        lastRightKnob   = -1;
-        displayNeedsUpdate = true;
+    // ── Press edge ────────────────────────────────────────────────────────────
+    if (fallingEdge) {
+        btnPressTime = now;
+
+        if (btnWaitingDbl && (now - btnFirstReleaseTime < (uint32_t)BTN_DBLCLICK_MS)) {
+            // Double-click confirmed
+            btnWaitingDbl          = false;
+            btnDoubleClickConsumed = true;   // suppress the upcoming release
+            if (menuMode) {
+                menuExit();
+            } else if (!patchSelectMode) {
+                menuEnter();
+            }
+        }
     }
 
-    if (btnReleased && patchSelectMode) {
-        patchSelectMode   = false;
-        currentPatchIndex = bankSlotToIndex(currentBank, currentSlot);
-        loadPatch(currentPatchIndex);
-        displayNeedsUpdate = true;
-        updateDisplay();
+    // ── Release edge ──────────────────────────────────────────────────────────
+    if (risingEdge) {
+        if (btnDoubleClickConsumed) {
+            btnDoubleClickConsumed = false;   // eat this release, do nothing
+
+        } else {
+            uint32_t held = now - btnPressTime;
+
+            if (patchSelectMode && !menuMode) {
+                // Long-press release → load chosen patch
+                patchSelectMode   = false;
+                currentPatchIndex = bankSlotToIndex(currentBank, currentSlot);
+                loadPatch(currentPatchIndex);
+                displayNeedsUpdate = true;
+                updateDisplay();
+
+            } else if (held < (uint32_t)BTN_CLICK_MAX_MS) {
+                // Quick click – open double-click window
+                btnFirstReleaseTime = now;
+                btnWaitingDbl       = true;
+
+                // In menu mode also immediately act as a single click (toggle edit)
+                if (menuMode) {
+                    menuClick(emaValue(emaRight));
+                }
+            }
+            // Held between CLICK_MAX and HOLD: do nothing (medium press, ignored)
+        }
+    }
+
+    // ── Double-click window expired → resolve as single click ────────────────
+    if (btnWaitingDbl && (now - btnFirstReleaseTime >= (uint32_t)BTN_DBLCLICK_MS)) {
+        btnWaitingDbl = false;
+        // Single click in play mode: no action currently assigned
+    }
+
+    // ── Hold threshold → enter patch-select (play mode only) ─────────────────
+    if (btnHeld && !menuMode && !patchSelectMode) {
+        if ((now - btnPressTime) >= (uint32_t)BTN_HOLD_MS) {
+            patchSelectMode = true;
+            lastLeftKnob    = -1;
+            lastRightKnob   = -1;
+            displayNeedsUpdate = true;
+        }
     }
 
     lastBtnState = btnState;
 
-    // Update EMA accumulators every call regardless of mode
+    // ── EMA ───────────────────────────────────────────────────────────────────
     emaLeft  = emaStep(emaLeft,  analogRead(PIN_KNOB_LEFT));
     emaRight = emaStep(emaRight, analogRead(PIN_KNOB_RIGHT));
 
     int smoothedLeft  = emaValue(emaLeft);
     int smoothedRight = emaValue(emaRight);
 
-    if (patchSelectMode) {
-        // ── Patch-select mode: knobs choose bank and slot ─────────────────────
+    // ── Knob routing ──────────────────────────────────────────────────────────
+    if (menuMode) {
+        menuUpdate(smoothedLeft, smoothedRight);
 
+    } else if (patchSelectMode) {
         int bank = map(smoothedLeft, 0, ADC_MAX, 0, NUM_BANKS);
-        bank     = constrain(bank, 0, NUM_BANKS);
-
+        bank = constrain(bank, 0, NUM_BANKS - 1);
         if (bank != lastLeftKnob) {
             lastLeftKnob = bank;
             currentBank  = bank;
@@ -110,11 +172,8 @@ void updateButtonKnobs() {
         }
 
         int totalSlots = bankPatchCount(currentBank);
-        int slot = (totalSlots > 1)
-                     ? map(smoothedRight, 0, ADC_MAX, 0, totalSlots)
-                     : 0;
+        int slot = (totalSlots > 1) ? map(smoothedRight, 0, ADC_MAX, 0, totalSlots) : 0;
         slot = constrain(slot, 0, totalSlots - 1);
-
         if (slot != lastRightKnob) {
             lastRightKnob = slot;
             currentSlot   = slot;
@@ -123,14 +182,12 @@ void updateButtonKnobs() {
         }
 
     } else {
-        // ── Play mode: knobs control chorus and reverb levels ─────────────────
-
+        // Play mode: chorus (left) and reverb (right)
         float newChorus = (float)smoothedLeft  / ADC_MAX;
         float newReverb = (float)smoothedRight / ADC_MAX;
 
         if (fabsf(newChorus - chorusLevel) >= FX_LEVEL_CHANGE_THRESHOLD) {
             chorusLevel = newChorus;
-            Serial.println(chorusLevel);
             amy_set_chorus_level(chorusLevel);
             amy_set_echo_level(chorusLevel);
             displayNeedsUpdate = true;

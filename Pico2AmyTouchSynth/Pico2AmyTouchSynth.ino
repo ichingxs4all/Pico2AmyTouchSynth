@@ -38,6 +38,7 @@
 #include <AMY-Arduino.h>
 #include "version.h"
 #include "effects.h"
+#include "menu.h"
 #include "patches_table.h"
 
 #include <Wire.h>
@@ -89,6 +90,11 @@ int  currentPatchIndex = 0;   // global PATCHES[] index
 bool patchSelectMode = false;
 bool lastBtnState    = HIGH;  // seeded from real pin in setupButtonKnobs()
 
+// ── Menu state ────────────────────────────────────────────────────────────────
+bool menuMode    = false;
+int  menuItemIdx = 0;
+bool menuEditing = false;
+
 // Smoothed knob tracking (mapped domain); -1 forces first-read
 int  lastLeftKnob    = -1;
 int  lastRightKnob   = -1;
@@ -127,9 +133,9 @@ void setup() {
 }
 
 // ── Loop ──────────────────────────────────────────────────────────────────────
-void loop() {  
+void loop() {
     updateTouchInputs();
     updateButtonKnobs();
-    if (displayNeedsUpdate && !patchSelectMode) updateDisplay(); 
+    if (displayNeedsUpdate && (!patchSelectMode || menuMode)) updateDisplay();
     amy_update();
 }
