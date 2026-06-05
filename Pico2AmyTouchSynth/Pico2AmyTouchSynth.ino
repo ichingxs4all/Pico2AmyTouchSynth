@@ -90,6 +90,8 @@ static const uint8_t PAD_NOTE[16] = {
     62, 64, 65, 67, 69, 71, 72, 74    // D4 – D5
 };
 
+int touch_threshold[]={ 1000,1000,1000,1000,1000,1000,1000,1000,1000,1000,1000,1000,1000,1000, 1000,1000,1000,1000,1000,1000,1000};
+
 // ── Synth / UI state ──────────────────────────────────────────────────────────
 int  currentBank       = 0;   // 0-based bank index
 int  currentSlot       = 0;   // 0-based slot within the bank
@@ -145,6 +147,7 @@ void setup() {
 
 // ── Loop ──────────────────────────────────────────────────────────────────────
 void loop() {
+    if(BOOTSEL) doCalibrate();
     updateMidiIn();    // poll USB + UART MIDI input
     updateTouchInputs();
     updateButtonKnobs();

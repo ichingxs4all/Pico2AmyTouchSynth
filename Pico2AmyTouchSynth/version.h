@@ -3,9 +3,10 @@
 // ── Version ───────────────────────────────────────────────────────────────────
 #define VERSION_MAJOR  2
 #define VERSION_MINOR  4
-#define VERSION_PATCH  0
-#define VERSION_STRING "v2.4.1"
+#define VERSION_PATCH  2
+#define VERSION_STRING "v2.4.2"
 
+// v2.4.2 - Recalibrate by pressing BOOTSELECT button
 // v2.4.1 - BANK/PATCH bug fixed
 // v2.4.0 - USB MIDI added
 // v2.3.0 - serial MIDI out added
