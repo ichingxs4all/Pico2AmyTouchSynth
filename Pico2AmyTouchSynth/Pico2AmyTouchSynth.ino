@@ -23,8 +23,6 @@
  *   Button HELD      →  left knob = bank (1–16),   right knob = slot in bank (1-17) , OCT +1 = PAD 15 , OCT -1 = PAD 14
  *   Release button   →  load chosen patch
  *
- * NOTE: All .ino files in this folder are merged automatically by the Arduino
- *       IDE — no explicit #include needed for the other .ino files.
  *
  * Dependencies (Arduino Library Manager):
  *   – AMY Synthesizer       (shorepine/amy)
@@ -44,6 +42,7 @@
 #include "effects.h"
 #include "menu.h"
 #include "patches_table.h"
+
 
 #include <Wire.h>
 #include <Adafruit_GFX.h>
@@ -90,7 +89,6 @@ static const uint8_t PAD_NOTE[16] = {
     62, 64, 65, 67, 69, 71, 72, 74    // D4 – D5
 };
 
-int touch_threshold[]={ 1000,1000,1000,1000,1000,1000,1000,1000,1000,1000,1000,1000,1000,1000, 1000,1000,1000,1000,1000,1000,1000};
 
 // ── Synth / UI state ──────────────────────────────────────────────────────────
 int  currentBank       = 0;   // 0-based bank index
@@ -115,25 +113,54 @@ float chorusLevel = FX_CHORUS_DEFAULT_LEVEL;
 float echoLevel = FX_ECHO_DEFAULT_LEVEL;
 float reverbLevel = FX_REVERB_DEFAULT_LEVEL;
 
-static bool padActive[16] = { false };
+static bool padActive[16];
 
 bool displayNeedsUpdate = false;
-bool debug = true;
-int transpose = 12;
+#define DEBUG              // comment out to disable all serial logging
 int octave    = 0;   // semitone offset = octave * 12; range -4 to +4
+
+// Forward declarations so impl headers can call each other regardless of order
+void setupAMY();
+void setupButtonKnobs();
+void updateButtonKnobs();
+void setupDisplay();
+void updateDisplay();
+void menuEnter();
+void menuExit();
+void menuClick(int currentRightKnob);
+void menuUpdate(int smoothedLeft, int smoothedRight);
+void drawMenuDisplay();
+void setupTouch();
+void updateTouchInputs();
+void loadPatch(int patchIdx);
+void setupMidi();
+void updateMidiIn();
+void midiNoteOn(uint8_t note, uint8_t velocity);
+void midiNoteOff(uint8_t note);
+void doCalibrate();
+
+// Implementation modules — included after all globals so each .h can see them
+#include "patch_impl.h"
+#include "amy_impl.h"
+#include "midi_impl.h"
+#include "touch_impl.h"
+#include "button_knobs_impl.h"
+#include "calibrate_impl.h"
+#include "display_impl.h"
+#include "menu_impl.h"
 
 // ── Setup ─────────────────────────────────────────────────────────────────────
 void setup() {
-    if (debug) {
-        Serial.begin(115200);
-        Serial.print("Pico 2 Amy Touch Synth ");
-        Serial.println(VERSION_STRING);
-        Serial.print(NUM_PATCHES);
-        Serial.print(" patches / ");
-        Serial.print(NUM_BANKS);
-        Serial.print(" banks / BANK_SIZE=");
-        Serial.println(BANK_SIZE);
-    }
+#ifdef DEBUG
+    Serial.begin(115200);
+    Serial.print("Pico 2 Amy Touch Synth ");
+    Serial.println(VERSION_STRING);
+    Serial.print(NUM_PATCHES);
+    Serial.print(" patches / ");
+    Serial.print(NUM_BANKS);
+    Serial.print(" banks / BANK_SIZE=");
+    Serial.println(BANK_SIZE);
+#endif
 
     setupTouch();
     setupButtonKnobs();   // also seeds chorusLevel / reverbLevel from knob pos

@@ -1,0 +1,8 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(grep \";$\")",
+      "Bash(cp /Users/iching/Desktop/Pico2AmyTouchSynth/Pico2AmyTouchSynth.ino /Users/iching/Desktop/Pico2AmyTouchSynth/src/main.cpp && mv /Users/iching/Desktop/Pico2AmyTouchSynth/*.h /Users/iching/Desktop/Pico2AmyTouchSynth/include/)"
+    ]
+  }
+}
